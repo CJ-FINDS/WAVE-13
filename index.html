@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hourly CSAT View</title>
+<style>
+:root{--bg:#000;--card:#0b0b0b;--row:#1a1a1a;--text:#e6e6e6;--white:#dedede;--muted:#a3a3a3;--edge:rgba(255,255,255,.6);--soft:rgba(255,255,255,.22);--red:#9b2c2c;--bgop:.15;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;min-height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--text);background:var(--bg)}
+/* Background logo: put bg.png inside a folder named IMAGE next to index.html. Change --bgop to make it fainter (lower) or stronger (higher). */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:url("IMAGE/bg.png") center/min(75vmin,640px) no-repeat;opacity:var(--bgop)}
+.wrap{width:min(1200px,100%);margin:0 auto;padding:28px 20px 100px}
+h1{margin:0;text-align:center;font-size:13px;letter-spacing:.3em;color:var(--muted)}
+.csTitle{margin:6px 0 4px;text-align:center;font-size:clamp(22px,4vw,32px);letter-spacing:.06em}
+.note{min-height:20px;margin:10px auto 0;text-align:center;font-size:13px;color:var(--muted)}
+.csgrid{display:grid;gap:18px;padding:14px 0}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:20px;padding:18px}
+.card h3{margin:0 0 12px;font-size:15px;letter-spacing:.15em;color:var(--muted)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:separate;border-spacing:0 6px}
+td,th{padding:9px 12px;text-align:left;font-size:14px}
+th{font-size:11px;letter-spacing:.1em;color:var(--muted);font-weight:600;padding-top:0;padding-bottom:0}
+tbody td{background:var(--row)}tbody td:first-child{border-radius:10px 0 0 10px}tbody td:last-child{border-radius:0 10px 10px 0}
+td.v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.cst{min-width:640px}.cst.wide{min-width:980px}
+.cst th{text-align:center;vertical-align:bottom;padding:0 12px 6px;white-space:normal;min-width:90px;line-height:1.3}
+.cst th:first-child{min-width:170px}
+.cst td,.cst td.v{text-align:center}
+.cst td:first-child{white-space:nowrap}
+.cst td.bad{background:var(--red);color:var(--text)}
+.cst tr.gt td{background:var(--white);color:#000;font-weight:800}
+.cst tr.gt td.bad{background:var(--red);color:var(--text)}
+.fab{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;border:1px solid #000;background:var(--white);color:#000;font-size:26px;cursor:pointer;box-shadow:0 8px 28px rgba(255,255,255,.18)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;padding:16px;z-index:25}
+.modal.on{display:flex}
+.panel{background:var(--card);border:1px solid var(--edge);border-radius:20px;width:min(1100px,100%);max-height:88vh;display:flex;flex-direction:column;padding:16px;color:var(--text)}
+.bar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
+.bar b{font-size:15px}.bar small{opacity:.75}
+.bar button{border:1px solid var(--edge);border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;background:var(--white);color:#000;margin-left:6px}
+.bar button.ghostb,.bar button#csExport,.bar button#csClear{background:transparent;color:var(--text)}
+.sheet{overflow:auto;border-radius:10px;background:var(--white)}
+.sheet table{border-collapse:collapse;border-spacing:0;width:max-content;color:#111}
+.sheet td,.sheet th{border:1px solid #d4d4d4;padding:4px 8px;font-size:12.5px;min-width:90px;height:26px;white-space:nowrap;background:var(--white)}
+.sheet th{background:#cfcfcf;color:#111;text-align:center;position:sticky;top:0}
+.sheet td.n{background:#cfcfcf;color:#111;min-width:34px;text-align:center;position:sticky;left:0}
+.sheet tr:first-of-type td:not(.n){font-weight:700;background:#d4d4d4}
+.sheet td:focus{outline:2px solid #000;outline-offset:-2px}
+</style></head><body>
+<div class="wrap">
+<h1>PROGRESS STAT</h1>
+<h2 class="csTitle">HOURLY CSAT VIEW</h2>
+<div class="note" id="csNote"></div>
+<div class="csgrid" id="csTables"></div>
+</div>
+<button class="fab" id="csFab" title="Open data sheet" aria-label="Open data sheet">&#128214;</button>
+
+<div class="modal" id="csModal"><div class="panel">
+<div class="bar"><div><b>CSAT data</b> <small id="csHint"></small></div>
+<div><button id="csAddRows" class="ghostb">+ Rows</button><button id="csAddCols" class="ghostb">+ Cols</button><button id="csT1">Surveys</button><button id="csT2" class="ghostb">Calls</button><button id="csExport" title="Download csat.json to publish for everyone">Export data</button><button id="csClear">Clear</button><button id="csClose">Done</button></div></div>
+<div class="sheet" id="csSheet"></div></div></div>
+
+<script>
+/* ================= CONFIG ================= */
+const CFG={takeTarget:.25,vrrRed:.92,fcrPassTarget:.88,csatTarget:4.9};
+// [username in the survey export, display name]
+const CS_AGENTS=[["carlo.baynosa","Carlo Baynosa"],["cyril.cabusas","Cyril Cabusas"],["gerson.gaerlan","Gerson Gaerlan"],["jera.bargamento","Jera Bargamento"],["keyvey.canoy","Keyvey Canoy"]];
+const FCR_VALUES=["Yes. resolved in one interaction","Yes. but it took more than one interaction.","No. this is my first interaction and it is not resolved.","No. I have contacted you more than once and it is still not resolved."];
+// Survey export without a header row uses these columns (0 = A): agent, case ID, Q1, Q2, FCR
+const DEF={agent:0,q1:3,q2:4,fcr:5};
+/* ========================================== */
+const norm=s=>String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]/g,"");
+const $id=id=>document.getElementById(id);
+const ok=v=>typeof v==="number"&&!isNaN(v);
+const N=(v,d=0)=>ok(v)?v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";
+const P=v=>ok(v)?(v*100).toFixed(2)+"%":"—";
+const below=(v,t)=>ok(v)&&v<t?"miss":"";
+const FCRN=FCR_VALUES.map(norm);
+const CS_IDX={};CS_AGENTS.forEach(([u,d],i)=>{CS_IDX[norm(u)]=i;CS_IDX[norm(d)]=i});
+
+let cs={surveys:[],calls:[]},csLocalTs=0,csTab="surveys",xRows=30,xCols=40;
+try{const d=JSON.parse(localStorage.getItem("cs2_data")||"null");if(d){cs.surveys=d.surveys||[];cs.calls=d.calls||[];csLocalTs=+d.ts||0}}catch(e){}
+const csSave=()=>{csLocalTs=Date.now();try{localStorage.setItem("cs2_data",JSON.stringify({surveys:cs.surveys,calls:cs.calls,ts:csLocalTs}))}catch(e){}};
+
+// Column finders: use headers when row 1 has "Agent Name", otherwise the default positions
+function surveyCols(){
+ const hs=(cs.surveys[0]||[]).map(norm),a=hs.indexOf("agentname");
+ if(a<0)return{ai:DEF.agent,ki:DEF.q1,ci:DEF.q2,fi:DEF.fcr,start:0,ok:cs.surveys.length>0};
+ const ki=hs.indexOf("knowledgeablerating"),ci=hs.indexOf("courteousrating"),fi=hs.indexOf("fcrvalue");
+ return{ai:a,ki,ci,fi,start:1,ok:ki>=0&&ci>=0&&fi>=0};
+}
+function callCols(){
+ const hc=(cs.calls[0]||[]).map(norm);
+ let nc=hc.indexOf("agentname");if(nc<0)nc=0;
+ let cc=-1;["calls","voiceanswered","numberofcalls"].some(k=>(cc=hc.indexOf(k))>=0);if(cc<0)cc=1;
+ return{nc,cc};
+}
+
+function csRender(){
+const A=CS_AGENTS.map(()=>({q1s:0,q1n:0,q2s:0,q2n:0,f:[0,0,0,0],calls:NaN}));
+const unknown=new Set();let noFcr=0;
+const sc=surveyCols();
+if(sc.ok)for(let r=sc.start;r<cs.surveys.length;r++){
+ const row=cs.surveys[r]||[];const nm=row[sc.ai];if(!norm(nm))continue;
+ const i=CS_IDX[norm(nm)];if(i===undefined){unknown.add(String(nm).trim());continue}
+ const a=A[i];
+ const v1=parseFloat(row[sc.ki]);if(ok(v1)){a.q1s+=v1;a.q1n++}
+ const v2=parseFloat(row[sc.ci]);if(ok(v2)){a.q2s+=v2;a.q2n++}
+ const j=FCRN.indexOf(norm(row[sc.fi]));if(j>=0)a.f[j]++;else noFcr++;
+}
+// Calls tab: Agent Name + Calls (or Voice Answered / Number of Calls); a headerless 2-column paste also works
+const cc=callCols();
+cs.calls.forEach(row=>{const i=CS_IDX[norm((row||[])[cc.nc])];if(i===undefined)return;
+ const v=parseFloat(String(row[cc.cc]==null?"":row[cc.cc]).replace(/,/g,""));
+ if(ok(v))A[i].calls=(ok(A[i].calls)?A[i].calls:0)+v});
+// Agents with no Q1 data are hidden from the tables, but their calls still count in the Grand Total
+const G={q1s:0,q1n:0,q2s:0,q2n:0,f:[0,0,0,0],calls:NaN};
+A.forEach(a=>{G.q1s+=a.q1s;G.q1n+=a.q1n;G.q2s+=a.q2s;G.q2n+=a.q2n;a.f.forEach((n,k)=>G.f[k]+=n);if(ok(a.calls))G.calls=(ok(G.calls)?G.calls:0)+a.calls});
+const avg=(s,n)=>n?s/n:NaN;
+const round2=v=>ok(v)?Math.round((v+1e-9)*100)/100:NaN;   // round half up at the 3rd decimal (4.896 -> 4.90)
+const m1=a=>{const q1=avg(a.q1s,a.q1n),q2=avg(a.q2s,a.q2n);return{q1:round2(q1),q2:round2(q2),csat:round2(ok(q1)&&ok(q2)?(q1+q2)/2:NaN),take:ok(a.calls)&&a.calls>0?a.q1n/a.calls:NaN}};   // Take rate = SURVEY (Q1 count) / CALLS
+const T=CFG.fcrPassTarget;
+const m2=a=>{const t=a.f[0]+a.f[1]+a.f[2]+a.f[3];const fcr=t?a.f[0]/t:NaN;
+ return{t,vrr:t?(a.f[0]+a.f[1])/t:NaN,fcr,need:!t||fcr>=T?"":Math.ceil(Number(((T*t-a.f[0])/(1-T)).toFixed(9)))}};
+const c=(v,flag)=>`<td class="v${flag?" bad":""}">${v}</td>`;
+const tr=(label,cells,gt)=>`<tr${gt?' class="gt"':''}><td>${label}</td>${cells.join("")}</tr>`;
+const tbl=(cls,heads,rows)=>`<div class="scroll"><table class="cst ${cls}"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+const r1=(label,a,gt)=>{const m=m1(a);return tr(label,[c(N(a.calls)),c(N(a.q1n)),c(N(m.q1,2)),c(N(m.q2,2)),c(N(m.csat,2),below(m.csat,CFG.csatTarget)),c(P(m.take),below(m.take,CFG.takeTarget))],gt)};
+const r2=(label,a,gt)=>{const m=m2(a);return tr(label,[...a.f.map(n=>c(n?N(n):"")),c(P(m.vrr),below(m.vrr,CFG.vrrRed)),c(P(m.fcr),below(m.fcr,T)),c(m.need===""?"—":N(m.need))],gt)};
+const t1=tbl("",["NAME","CALLS","SURVEY","Q1","Q2","CSAT","TAKE RATE"],[...A.map((a,i)=>a.q1n?r1(CS_AGENTS[i][1],a):""),r1("GRAND TOTAL",G,true)]);
+const t2=tbl("wide",["NAME","Q1","Q2","Q3","Q4","VRR","FCR","SURVEYS NEEDED"],[...A.map((a,i)=>a.q1n?r2(CS_AGENTS[i][1],a):""),r2("GRAND TOTAL",G,true)]);
+const t3=tbl("",["NAME","CALLS"],A.map((a,i)=>a.q1n?tr(CS_AGENTS[i][1],[c(N(a.calls))]):""));
+$id("csTables").innerHTML=`<div class="card"><h3>CSAT &amp; TAKE RATE</h3>${t1}</div><div class="card"><h3>FCR &amp; VRR</h3>${t2}</div><div class="card"><h3>CALLS</h3>${t3}</div>`;
+const msgs=[];
+if(!cs.surveys.length)msgs.push("No survey data yet. Tap the book button and paste the sheet.");
+else if(!sc.ok)msgs.push("Survey columns not found. Paste with headers in row 1 (Agent Name, Knowledgeable rating, Courteous rating, FCR value), or paste without headers in the export's original column order.");
+else{
+ if(unknown.size){const l=[...unknown];msgs.push(l.length+" agent name(s) not in the list: "+l.slice(0,4).join(", ")+(l.length>4?", …":"")+".")}
+ if(noFcr)msgs.push(noFcr+" survey(s) have no recognised FCR answer and are left out of VRR/FCR.");
+}
+$id("csNote").textContent=msgs.join(" ");
+}
+
+/* ---------- Data sheet ---------- */
+function parseTSV(t){const rows=[];let row=[],f="",q=false;t=t.replace(/\r/g,"");
+for(let i=0;i<t.length;i++){const ch=t[i];
+ if(q){if(ch==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}
+ else if(ch==='"'&&f==="")q=true;
+ else if(ch==="\t"){row.push(f);f=""}
+ else if(ch==="\n"){row.push(f);rows.push(row);row=[];f=""}
+ else f+=ch}
+if(f!==""||row.length){row.push(f);rows.push(row)}
+return rows}
+const colName=c=>{let s="";c++;while(c>0){const m=(c-1)%26;s=String.fromCharCode(65+m)+s;c=Math.floor((c-1)/26)}return s};
+const CS_CAP=1000;
+function csGrid(){
+const arr=cs[csTab],R=Math.min(arr.length+xRows,CS_CAP),C=Math.max(xCols,...arr.slice(0,CS_CAP).map(r=>r.length+1));
+let h="<table><thead><tr><th></th>";
+for(let k=0;k<C;k++)h+=`<th>${colName(k)}</th>`;
+h+="</tr></thead><tbody>";
+for(let r=0;r<R;r++){h+=`<tr><td class="n">${r+1}</td>`;for(let k=0;k<C;k++){const v=(arr[r]&&arr[r][k])||"";h+=`<td contenteditable="true" data-r="${r}" data-c="${k}">${String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;")}</td>`}h+="</tr>"}
+$id("csSheet").innerHTML=h+"</tbody></table>";
+$id("csHint").textContent=(csTab==="surveys"?"Click A1 and paste the survey export (replaces old data). Headers in row 1 are optional.":"Click A1 and paste Agent Name + Calls (or Voice Answered). Headers in row 1 are optional.")+(arr.length>CS_CAP?" Showing first "+CS_CAP+" of "+arr.length+" rows.":"");
+}
+function csSetTab(t){csTab=t;$id("csT1").className=t==="surveys"?"":"ghostb";$id("csT2").className=t==="calls"?"":"ghostb";csGrid()}
+const grow=(el,redraw,r,c)=>{const t=el.scrollTop,l=el.scrollLeft;xRows+=r;xCols+=c;redraw();el.scrollTop=t;el.scrollLeft=l};
+$id("csAddRows").onclick=()=>grow($id("csSheet"),csGrid,25,0);
+$id("csAddCols").onclick=()=>grow($id("csSheet"),csGrid,0,10);
+$id("csT1").onclick=()=>csSetTab("surveys");
+$id("csT2").onclick=()=>csSetTab("calls");
+$id("csFab").onclick=()=>{csGrid();$id("csModal").classList.add("on")};
+const csClose=()=>{$id("csModal").classList.remove("on");csRender()};
+$id("csClose").onclick=csClose;
+$id("csModal").addEventListener("click",e=>{if(e.target===$id("csModal"))csClose()});
+$id("csSheet").addEventListener("input",e=>{const t=e.target;if(!t.dataset||t.dataset.r===undefined)return;const arr=cs[csTab],r=+t.dataset.r,k=+t.dataset.c;while(arr.length<=r)arr.push([]);arr[r][k]=t.textContent;csSave()});
+$id("csSheet").addEventListener("paste",e=>{
+const t=e.target.closest("td[data-r]");if(!t)return;e.preventDefault();
+const rows=parseTSV((e.clipboardData||window.clipboardData).getData("text"));
+const arr=cs[csTab],r0=+t.dataset.r,c0=+t.dataset.c;
+if(r0===0&&c0===0)arr.length=0;
+rows.forEach((cells,i)=>{while(arr.length<=r0+i)arr.push([]);cells.forEach((v,j)=>{arr[r0+i][c0+j]=String(v).trim()})});
+csSave();csGrid()});
+$id("csClear").onclick=()=>{if(!confirm("Clear the "+csTab+" data for everyone's view once published?"))return;cs[csTab]=[];csSave();csGrid()};
+
+/* ---------- Export: only what the tables need goes into the public file ---------- */
+function csSlim(){
+const sc=surveyCols();if(!sc.ok)return[];
+const rows=[["Agent Name","Knowledgeable rating","Courteous rating","FCR value"]];
+for(let r=sc.start;r<cs.surveys.length;r++){const row=cs.surveys[r]||[];if(!norm(row[sc.ai]))continue;
+ rows.push([row[sc.ai],row[sc.ki],row[sc.ci],row[sc.fi]].map(v=>v==null?"":v))}
+return rows}
+function callsSlim(){
+const cc=callCols();const rows=[["Agent Name","Calls"]];
+cs.calls.forEach(row=>{const r=row||[];if(CS_IDX[norm(r[cc.nc])]===undefined)return;rows.push([r[cc.nc],r[cc.cc]==null?"":r[cc.cc]])});
+return rows}
+$id("csExport").onclick=()=>{
+if(cs.surveys.length&&!surveyCols().ok){alert("Survey columns not found, so nothing was exported. Check the headers in row 1.");return}
+const blob=new Blob([JSON.stringify({updated:Date.now(),surveys:csSlim(),calls:callsSlim()})],{type:"application/json"});
+const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="csat.json";document.body.appendChild(a);a.click();a.remove();
+setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+alert("csat.json downloaded.\n\nUpload it to your GitHub repo (same folder as index.html) and replace the old csat.json. Everyone will see the update after a few minutes.");
+};
+
+/* ---------- Published data (csat.json next to index.html) ---------- */
+function loadCsat(){
+if(location.protocol==="file:")return;
+fetch("csat.json?v="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{
+if(!j||!Array.isArray(j.surveys))return;
+if((+j.updated||0)>=csLocalTs){cs.surveys=j.surveys;cs.calls=Array.isArray(j.calls)?j.calls:[]}
+if(!$id("csModal").classList.contains("on"))csRender();
+}).catch(()=>{});
+}
+
+csRender();
+loadCsat();
+</script></body></html>
