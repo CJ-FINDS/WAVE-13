@@ -128,7 +128,7 @@ const r1=(label,a,gt)=>{const m=m1(a);return tr(label,[c(N(a.calls)),c(N(a.q1n))
 const r2=(label,a,gt)=>{const m=m2(a);return tr(label,[...a.f.map(n=>c(n?N(n):"")),c(P(m.vrr),below(m.vrr,CFG.vrrRed)),c(P(m.fcr),below(m.fcr,T)),c(m.need===""?"—":N(m.need))],gt)};
 const t1=tbl("",["NAME","CALLS","SURVEY","Q1","Q2","CSAT","TAKE RATE"],[...A.map((a,i)=>a.q1n?r1(CS_AGENTS[i][1],a):""),r1("GRAND TOTAL",G,true)]);
 const t2=tbl("wide",["NAME","Q1","Q2","Q3","Q4","VRR","FCR","SURVEYS NEEDED"],[...A.map((a,i)=>a.q1n?r2(CS_AGENTS[i][1],a):""),r2("GRAND TOTAL",G,true)]);
-const t3=tbl("",["NAME","CALLS"],[...A.map((a,i)=>tr(CS_AGENTS[i][1],[c(N(a.calls))])),tr("GRAND TOTAL",[c(N(G.calls))],true)]);
+const t3=tbl("",["NAME","CALLS"],[...A.map((a,i)=>a.q1n?tr(CS_AGENTS[i][1],[c(N(a.calls))]):""),tr("GRAND TOTAL",[c(N(G.calls))],true)]);
 $id("csTables").innerHTML=`<div class="card"><h3>CSAT &amp; TAKE RATE</h3>${t1}</div><div class="card"><h3>FCR &amp; VRR</h3>${t2}</div><div class="card"><h3>CALLS</h3>${t3}</div>`;
 const msgs=[];
 if(!cs.surveys.length)msgs.push("No survey data yet. Tap the book button and paste the sheet.");
