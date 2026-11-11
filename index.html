@@ -117,7 +117,7 @@ const G={q1s:0,q1n:0,q2s:0,q2n:0,f:[0,0,0,0],calls:NaN};
 A.forEach(a=>{G.q1s+=a.q1s;G.q1n+=a.q1n;G.q2s+=a.q2s;G.q2n+=a.q2n;a.f.forEach((n,k)=>G.f[k]+=n);if(ok(a.calls))G.calls=(ok(G.calls)?G.calls:0)+a.calls});
 const avg=(s,n)=>n?s/n:NaN;
 const round2=v=>ok(v)?Math.round((v+1e-9)*100)/100:NaN;   // round half up at the 3rd decimal (4.896 -> 4.90)
-const m1=a=>{const q1=avg(a.q1s,a.q1n),q2=avg(a.q2s,a.q2n);return{q1:round2(q1),q2:round2(q2),csat:round2(ok(q1)&&ok(q2)?(q1+q2)/2:NaN),take:ok(a.calls)&&a.calls>0?a.q1n/a.calls:NaN}};   // Take rate = SURVEY (Q1 count) / CALLS
+const m1=a=>{const q1=avg(a.q1s,a.q1n),q2=avg(a.q2s,a.q2n);return{q1:round2(q1),q2:round2(q2),csat:round2((a.q1n+a.q2n)?(a.q1s+a.q2s)/(a.q1n+a.q2n):NaN),take:ok(a.calls)&&a.calls>0?a.q1n/a.calls:NaN}};   // Take rate = SURVEY (Q1 count) / CALLS
 const T=CFG.fcrPassTarget;
 const m2=a=>{const t=a.f[0]+a.f[1]+a.f[2]+a.f[3];const fcr=t?a.f[0]/t:NaN;
  return{t,vrr:t?(a.f[0]+a.f[1])/t:NaN,fcr,need:!t||fcr>=T?"":Math.ceil(Number(((T*t-a.f[0])/(1-T)).toFixed(9)))}};
